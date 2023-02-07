@@ -1,3 +1,19 @@
+# The microservice above implements a REST API for training and using machine learning models. 
+# It has several key functionalities:
+#     1 Training ML models with customizable hyperparameters: the user can train a regression, 
+#     classification, or random forest model, and specify the hyperparameters they want to use.
+
+#     2 Listing available model classes: the user can get a list of the model classes that are available for training.
+
+#     3 Returning predictions: the user can get predictions from a specific trained model, 
+#     and the system is capable of storing multiple trained models.
+
+#     4 Retraining and deleting models: the user can retrain a model or delete a previously trained model.
+
+# The microservice takes in HTTP requests with data for training, 
+# hyperparameters, or model predictions, and outputs HTTP responses with information about the available model classes, 
+# the trained models, or the predictions made
+
 import os
 import psycopg2
 from flask import Flask, request
@@ -8,16 +24,29 @@ app = Flask(__name__)
 
 @app.route('/model', methods=['GET', 'POST'])
 def model():
+    """
+    Train the model.
+
+    Parameters
+    ----------
+    model_class: str
+        Class of the model.
+    hyperparameters: dict
+        Hyperparameters for the model.
+
+    Returns
+    -------
+    str
+        Status of training the model.
+
+    """
     if request.method == 'GET':
-        # return the list of available model classes
         return 'Regression, Classification, RandomForest'
 
     if request.method == 'POST':
-        # get the parameters from the request
         model_class = request.json['model_class']
         hyperparameters = request.json['hyperparameters']
         
-        # train the model based on the given class and hyperparameters
         if model_class == 'Regression':
             model = LinearRegression(**hyperparameters)
         elif model_class == 'Classification':
@@ -27,7 +56,6 @@ def model():
         else:
             return 'Invalid model class'
         
-        # store the model in the database
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         cur = conn.cursor()
         cur.execute("INSERT INTO models (model_class, model) VALUES (%s, %s)", (model_class, model))
@@ -39,11 +67,25 @@ def model():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    # get the model_id and the data from the request
+    """
+    Predict the data.
+
+    Parameters
+    ----------
+    model_id: int
+        Id of the model.
+    data: list
+        Data to predict.
+
+    Returns
+    -------
+    str
+        Prediction of data.
+
+    """
     model_id = request.json['model_id']
     data = request.json['data']
     
-    # retrieve the model from the database
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
     cur = conn.cursor()
     cur.execute("SELECT model FROM models WHERE id = %s", (model_id,))
@@ -51,17 +93,28 @@ def predict():
     cur.close()
     conn.close()
     
-    # make a prediction using the model
     prediction = model.predict(data)
     
     return str(prediction)
 
 @app.route('/delete_model', methods=['POST'])
 def delete_model():
-    # get the model_id from the request
+    """
+    Delete the model.
+
+    Parameters
+    ----------
+    model_id: int
+        Id of the model.
+
+    Returns
+    -------
+    str
+        Status of deleting the model.
+
+    """
     model_id = request.json['model_id']
     
-    # delete the model from the database
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
     cur = conn.cursor()
     cur.execute("DELETE FROM models WHERE id = %s", (model_id,))
